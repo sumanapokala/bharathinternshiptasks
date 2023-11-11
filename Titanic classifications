@@ -1,0 +1,40 @@
+# Import necessary libraries
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import accuracy_score, classification_report
+
+# Sample data (replace this with your dataset)
+data = {
+    'SocioeconomicStatus': ['High', 'Low', 'Medium', 'Medium', 'High', 'Low'],
+    'Age': [35, 22, 45, 30, 40, 28],
+    'Gender': ['Male', 'Female', 'Male', 'Female', 'Male', 'Female'],
+    'SafeFromSinking': [1, 0, 1, 1, 1, 0]  # 1 means safe, 0 means not safe
+}
+
+df = pd.DataFrame(data)
+
+# Convert categorical variables to numerical using one-hot encoding
+df_encoded = pd.get_dummies(df, columns=['SocioeconomicStatus', 'Gender'], drop_first=True)
+
+# Define features and target variable
+X = df_encoded.drop('SafeFromSinking', axis=1)
+y = df_encoded['SafeFromSinking']
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Build a decision tree classifier
+model = DecisionTreeClassifier(random_state=42)
+model.fit(X_train, y_train)
+
+# Make predictions
+y_pred = model.predict(X_test)
+
+# Evaluate the model
+accuracy = accuracy_score(y_test, y_pred)
+print(f'Accuracy: {accuracy:.2f}')
+
+# Display classification report
+print('Classification Report:')
+print(classification_report(y_test, y_pred))
