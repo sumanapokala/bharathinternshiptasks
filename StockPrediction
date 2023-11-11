@@ -1,0 +1,78 @@
+pip install numpy pandas matplotlib tensorflow
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import MinMaxScaler
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense
+
+# Load stock price data
+url = "https://example.com/your_stock_data.csv"  # Replace with the actual URL or path to your stock data CSV file
+data = pd.read_csv(url)
+data.head()
+
+# Use the closing prices for prediction
+df = data[['Close']].copy()
+
+# Normalize the data
+scaler = MinMaxScaler(feature_range=(0, 1))
+df_scaled = scaler.fit_transform(df)
+
+# Split the data into training and testing sets
+train_size = int(len(df_scaled) * 0.8)
+test_size = len(df_scaled) - train_size
+train, test = df_scaled[0:train_size, :], df_scaled[train_size:len(df_scaled), :]
+
+# Convert the time series data into input features and labels
+def create_dataset(dataset, time_steps=1):
+    X, Y = [], []
+    for i in range(len(dataset) - time_steps):
+        a = dataset[i:(i + time_steps), 0]
+        X.append(a)
+        Y.append(dataset[i + time_steps, 0])
+    return np.array(X), np.array(Y)
+
+time_steps = 60  # You can experiment with different time steps
+X_train, Y_train = create_dataset(train, time_steps)
+X_test, Y_test = create_dataset(test, time_steps)
+
+# Reshape the input data to be 3D (samples, time steps, features)
+X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
+X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], 1))
+
+# Build the LSTM model
+model = Sequential()
+model.add(LSTM(units=50, return_sequences=True, input_shape=(X_train.shape[1], 1)))
+model.add(LSTM(units=50))
+model.add(Dense(units=1))
+model.compile(optimizer='adam', loss='mean_squared_error')
+
+# Train the model
+model.fit(X_train, Y_train, epochs=10, batch_size=32)
+
+# Make predictions
+train_predict = model.predict(X_train)
+test_predict = model.predict(X_test)
+
+# Invert the predictions to get original scale
+train_predict = scaler.inverse_transform(train_predict)
+Y_train = scaler.inverse_transform([Y_train])
+test_predict = scaler.inverse_transform(test_predict)
+Y_test = scaler.inverse_transform([Y_test])
+
+# Plot the results
+train_predict_plot = np.empty_like(df_scaled)
+train_predict_plot[:, :] = np.nan
+train_predict_plot[time_steps:len(train_predict) + time_steps, :] = train_predict
+
+test_predict_plot = np.empty_like(df_scaled)
+test_predict_plot[:, :] = np.nan
+test_predict_plot[len(train_predict) + (time_steps * 2):len(df_scaled), :] = test_predict
+
+plt.figure(figsize=(16, 8))
+plt.plot(scaler.inverse_transform(df_scaled), label='Actual Stock Price')
+plt.plot(train_predict_plot, label='Training Set Prediction')
+plt.plot(test_predict_plot, label='Test Set Prediction')
+plt.legend()
+plt.show()
